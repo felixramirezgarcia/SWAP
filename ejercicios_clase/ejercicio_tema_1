@@ -1,0 +1,72 @@
+Buscar información sobre las tareas o servicios web para los
+que se usan más los programas que comentamos al
+principio de la sesión: 
+
+Servidor HTTP Apache:
+	Es un servidor web de codigo abierto disponible para diferentes sistemas
+	operativos , implementa el protocolo HTTP y la nocion de sitio virtual.
+	Es desarrollado y mantenido por una comunidad de usuarios bajo la supervision 
+	de la Apache Software Foundation.
+	Es el servidor HTTP mas usado en la red desde 1996.
+	La configuracion se realiza en el archivo apache2.conf y cualquier cabio
+	requiere el reinicio del servidor.
+
+Servidor HTTP Nginx:
+	Es un servidor HTTP de codigo abierto al igual que Apache, de alto rendimiento
+	y proxy inverso.
+	Es multiplatadorma al igual que Apache.
+	Tiene una configuracion sencilla y bajo consumo de recursos.
+	A diferencia de los servidores convencionales no se basa en hebras para manejar
+	las solicitudes, sino que usa una arquitectura asincrona basada en eventos que
+	es mucho mas escalable.
+	El sistema es usado en sitios como  WordPress, Netflix, Hulu, GitHub, Ohloh, 
+	SourceForge.
+
+Servidor HTTP Thttpd:
+	Es un servidor HTTP sencillo, ya que solo maneja poco mas del minimo
+	necesario para implementar HTTP , pequeño , ya que se bifurca  es muy cuidadoso
+	con la asignacion de memoria, portatil, porque se compila de forma limpia
+	en la mayoria de los sistemas similares a Unix, rapido, como los servidores 
+	Apache por ejemplo, y seguro.	
+	Tiene una caracteristica mu util la cual no poseen los otros servidores actualmente
+	, es la estrangulacion basada en el trafico de URL.
+
+Servidor web Cherokee:
+	Es un servidor web multiplataforma.
+	Esta escrito completamente en C. Puede usarse como un sistema embebido y soporta 
+	complementos para aumentar sus funcionalidades. 
+	Es software libre desarrollado y mantenido por una comunidad abierta de desarrolladores
+	Surgio como una necesidad de algo mas nuevo que NCSA , pero no tan pesad como
+	Apache.
+
+Node.js
+	Es un entorno de ejecucion para JavaScript.
+	Usa un modelo de operaciones de entrada/salida sin bloqueo y orientado a eventos, 
+	lo que lo hace libiano y eficiente.
+	El ecosistema de paquetes de Node.js es el ecosistema mas grande de librerias
+	de codigo abierto en el mundo.
+	Fue creado con el enfoque de ser util en la creacion de programas de red escalables
+	como en servidores web.
+
+/---------------------------------------------------------------------------------------------
+Bibliografia:
+
+https://httpd.apache.org/
+
+https://es.wikipedia.org/wiki/Servidor_HTTP_Apache
+
+https://www.nginx.com/resources/wiki/
+
+https://es.wikipedia.org/wiki/Nginx
+
+http://acme.com/software/thttpd/
+
+https://es.wikipedia.org/wiki/Cherokee_(servidor_web)
+
+https://nodejs.org/es/
+
+https://es.wikipedia.org/wiki/Node.js
+
+
+
+

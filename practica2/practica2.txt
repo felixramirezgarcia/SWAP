@@ -1,0 +1,24 @@
+Configuracion de las maquinas y del software:
+----------------------------------------------------------------------------------
+Ambas máquinas virtuales tienen un Ubuntu Server 16, y entre ambas existe creada
+una red virtual tipo Nat.
+La herramienta rsync ya estaba instalada en las dos.
+He establecido en ambas máquinas una contraseña para el usuario root.
+He probado con el comando proporcionado en el gión de practicas 
+rsync -avz -e ssh root@172.16.86.128:/var/www/ /var/www
+para copiar la carpeta
+/var/www de la maquina1 en la maquina2 y no funcionaba, por lo que he tenido que
+cambiar el parametro 'PermirRootLogin' y ponerle el valor 'yes' . Una vez reiniciado
+el servicio ssh con el comando ssh service restart todo funciona .
+Para poder conectarme mediante ssh desde la maquina2 a la maquina1 sin usar una
+contraseña he seguido el guión de practicas , creando una clave publica con el comando
+ssh-keygen -b 4096 -t rsa , ya que el comando proporcionado en el guión de prácticas
+no me ha funcionado. A continuación he enviado la clave al repositorio de claves de la 
+maquina1 para que no vuelva a solicitarla, para ello he usado el comando 
+ssh-copy-id root@ipmaquina1 , con el que me solicita la contraseña de root en la maquina1
+para no volver a solicitarla más al conectarnos por ssh.
+Para programar la copia de la carpeta /var/www cada media hora he editado el archivo
+/etc/crontab , añadiendo la linea :
+30 *	* * * 	root	rsync -avz -e ssh root@172.16.86.128:/var/www/ /var/www
+,y asi cada 30 minutos se realiza una copia en la maquina2.
+

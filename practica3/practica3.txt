@@ -1,0 +1,310 @@
+Lo primero que hay que hacer es instalar una nueva maquina virtual sin el apache
+instalado, o al menos, eliminando el demonio del arranque con el comando:
+
+update-rc.d -f apache2 remove
+
+Ahora hay que instalar el servidor nginx sobre esta maquina con los siguientes comandos:
+
+sudo cd /tmp/
+sudo wget http://nginx.org/keys/nginx_signing.key
+sudo apt-key add /tmp/nginx_signing.key
+sudo rm -f /tmp/nginx_signing.key
+
+sudo echo "deb http://nginx.org/packages/ubuntu/ lucid nginx" >> /etc/apt/sources.list
+sudo echo "deb-src http://nginx.org/packages/ubuntu/ lucid nginx" >> /etc/apt/sources.list
+
+sudo apt-get update
+sudo apt-get install nginx
+
+Compruebo que se ha instalando correctamente viendo la version de nginx
+
+felix@ubuntu:/tmp$ nginx -v
+nginx version: nginx/1.10.0 (Ubuntu)
+
+Ahora paso a su configuración modificando el fichero /etc/nginx/conf.d/default.conf para que quede de la forma:
+
+upstream apaches{
+	server 172.16.86.128;
+	server 172.16.86.129;
+}
+server{
+	listen 80;
+	server_name balanceador;
+
+	access_log /var/log/nginx/balanceador.access.log;
+	error_log /var/log/nginx/balanceador.error.log;
+	root /var/www/;
+
+	location /
+	{
+		proxy_pass http://apaches;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+	}
+}
+
+Para comprobar que funciona correctamente he realizado peticiones desde el balanceador a ambas maquinas:
+-----------------------------
+curl http://172.16.86.130
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+------------------------------
+curl http://172.16.86.131
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+Para hacer un balanceo por IP el arhivo default.conf quedaria :
+
+upstream apaches{
+	ip_hash;
+	server 172.16.86.128;
+	server 172.16.86.129;
+}
+server{
+	listen 80;
+	server_name balanceador;
+
+	access_log /var/log/nginx/balanceador.access.log;
+	error_log /var/log/nginx/balanceador.error.log;
+	root /var/www/;
+
+	location /
+	{
+		proxy_pass http://apaches;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+	}
+}
+
+Y para utilizar la directiva keepalive, para que se realice una conexion con una persistencia
+de multiples peticiones HTTP en lugar de abrir una nueva cada vez , el archivo default.conf quedaria:
+
+upstream apaches{
+	server 172.16.86.128;
+	server 172.16.86.129;
+	keepalive 3;
+}
+server{
+	listen 80;
+	server_name balanceador;
+
+	access_log /var/log/nginx/balanceador.access.log;
+	error_log /var/log/nginx/balanceador.error.log;
+	root /var/www/;
+
+	location /
+	{
+		proxy_pass http://apaches;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+	}
+}
+
+HAPROXY
+
+Balanceo de carga con haproxy (puede balancear cualquier tipo de trafico):
+
+Para instalar haproxy he usado el comando :
+
+sudo apt-get install haproxy
+
+Una vez instalado hay que configurarlo modificando el archivo /etc/haproxy/haproxy.cfg para que quede de la forma:
+
+global
+	daemon
+	maxconn 256
+
+defaults
+	mode http
+	contimeout 4000
+	clitimeout 42000
+	srvtimeout 43000
+
+frontend http-in
+	bind *:80
+	default_backend servers
+
+backend servers
+	server m1 172.16.86.128:80 maxconn 32
+	server m2 172.16.86.129:80 maxconn 32
+
+Lanzo el servicio con /usr/sbin/haproxy -f /etc/haproxy/haproxy.cfg , y para probar que la nueva 
+configuracion funciona hago unas pruebas con curl http://ip_balanceador/balanceo.html,  este deberá de contestarnos alternativamente con server1  server2.
+
+Primero creo el archivo /var/www/html/balanceo.html en el server1 con el contenido:
+
+<HTML>
+<BODY>
+Soy el servidor 1
+</BODY>
+</HTML>
+
+Despues creo el archivo /var/www/html/balanceo.html en el server2 con el contenido:
+
+<HTML>
+<BODY>
+Soy el servidor 2
+</BODY>
+</HTML>
+
+La respuesta del balanceador es:
+
+felix@ubuntu:~$ curl http://172.16.86.131/balanceo.html
+<HTML>
+<BODY>
+Soy el servidor 1
+</BODY>
+</HTML>
+felix@ubuntu:~$ curl http://172.16.86.131/balanceo.html
+<HTML>
+<BODY>
+Soy el servidor 2
+</BODY>
+</HTML>
+felix@ubuntu:~$ 
+
+Para medir el rendimiento del servidor he usado la herramienta apache benchmarck, con la ejecucion en otro servidor 
+(para no sumar carga a ninguno de los que forman la granja web) del comando :
+
+felix@felix-pc:/dev$ ab -n 1000 -c 10 http://172.16.86.131/balanceo.html
+
+Cuyo resultado es:
+
+This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 172.16.86.131 (be patient)
+Completed 100 requests
+Completed 200 requests
+Completed 300 requests
+Completed 400 requests
+Completed 500 requests
+Completed 600 requests
+Completed 700 requests
+Completed 800 requests
+Completed 900 requests
+Completed 1000 requests
+Finished 1000 requests
+
+
+Server Software:        Apache/2.4.18
+Server Hostname:        172.16.86.131
+Server Port:            80
+
+Document Path:          /balanceo.html
+Document Length:        48 bytes
+
+Concurrency Level:      10
+Time taken for tests:   492.095 seconds
+Complete requests:      1000
+Failed requests:        404
+   (Connect: 0, Receive: 0, Length: 404, Exceptions: 0)
+Non-2xx responses:      404
+Total transferred:      260872 bytes
+HTML transferred:       71836 bytes
+Requests per second:    2.03 [#/sec] (mean)
+Time per request:       4920.953 [ms] (mean)
+Time per request:       492.095 [ms] (mean, across all concurrent requests)
+Transfer rate:          0.52 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.2      0       4
+Processing:     1 4849 5882.3     12   12087
+Waiting:        1 4849 5882.3     12   12087
+Total:          1 4849 5882.3     12   12088
+
+Percentage of the requests served within a certain time (ms)
+  50%     12
+  66%  11978
+  75%  11987
+  80%  11991
+  90%  11999
+  95%  12002
+  98%  12005
+  99%  12058
+ 100%  12088 (longest request)
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

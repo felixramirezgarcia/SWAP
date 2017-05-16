@@ -1,0 +1,175 @@
+Práctica 4. Asegurar la granja web
+----------------------------------------------------------------------------------------
+El objetivo de esta práctica es llevar a cabo la configuración de seguridad de la granja
+web. Para ello se va a instalar un certificado SSL para configurar el acceso HTTPS a los 
+servidores y configurar las reglas del cortafuegos para proteger la granja web.
+----------------------------------------------------------------------------------------
+Instalar un certificado SSL autofirmado para configurar el acceso por HTTPS:
+
+Este certificado sirve para decirle a los clientes que el sitio web es seguro y confiable.
+Existen diversas formas de obtener un certificado SSL e instalarlo en nuestro servidor
+web para poder servir páginas mediante el protocolo HTTPS, para ello solo debemos activar
+el módulo SSL de Apache, generar los certificados y especificarle la ruta a los
+certificados en la configuración. Así pues, como root ejecutaremos:
+
+a2enmod ssl
+service apache2 restart
+mkdir /etc/apache2/ssl
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout
+ /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache.crt
+
+Nos pedirá una serie de datos para configurar el dominio, el resultado queda como:
+
+Generating a 2048 bit RSA private key
+....................+++
+......+++
+writing new private key to '/etc/apache2/ssl/apache.key'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:ES
+State or Province Name (full name) [Some-State]:granada
+Locality Name (eg, city) []:granada
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:swap
+Organizational Unit Name (eg, section) []:swap
+Common Name (e.g. server FQDN or YOUR name) []:swap
+Email Address []:swap@info.com
+
+Editamos el archivo de configuración del sitio default-ssl con el comando:
+
+nano /etc/apache2/sites-available/default-ssl
+
+Y agregamos estas lineas debajo de donde pone SSLEngine on:
+
+SSLCertificateFile /etc/apache2/ssl/apache.crt
+SSLCertificateKeyFile /etc/apache2/ssl/apache.key
+
+Activamos el sitio default--ssl y reiniciamos apache con los comandos:
+
+a2ensite default-ssl
+service apache2 reload
+
+Una vez reiniciado Apache, accedemos al servidor web mediante el protocolo HTTPS
+y veremos que en la barra de dirección sale en rojo el https, ya que se trata de un
+certificado autofirmado.
+----------------------------------------------------------------------------------------
+Configuración del cortafuegos
+
+Un cortafuegos es un componente esencial que protege la granja web de accesos
+indebidos, permitiendo el tráfico autorizado y denegando el resto. Nosotros vamos a
+configurar el cortafuegos iptables en Linux. Se basa en establecer una lista de reglas con
+las que definir qué acciones hacer con cada paquete en función de la información que 
+incluye. Para configurar adecuadamente iptables en una máquina Linux, conviene establecer
+como reglas por defecto la denegación de todo el tráfico, salvo el que permitamos
+después explícitamente, ya que en principio debe estar todo habilitado por defecto, lo 
+comprobamos de la forma:
+
+root@ubuntu:~# curl http://localhost/hola.html
+<HTML>
+<BODY>
+
+<p>
+Esto funciona :)
+</p>
+
+</BODY>
+</HTML>
+root@ubuntu:~# curl -k https://localhost/hola.html
+<HTML>
+<BODY>
+
+<p>
+Esto funciona :)
+</p>
+
+</BODY>
+</HTML>
+
+Como se puede observar apache esta abierto y sirve trafico tanto http como https.
+
+Para configurarlo se va a crear un script que se ejecute en el arranque del sistema,
+sera el siguiente:
+
+#!/bin/sh
+
+	iptables -F
+	iptables -X
+	iptables -Z
+	iptables -t nat -F
+
+	iptables -P INPUT DROP
+	iptables -P OUTPUT DROP
+
+	iptables -A INPUT -i lo -j ACCEPT
+	iptables -A OUTPUT -o lo -j ACCEPT
+
+	iptables -A INPUT -i eth0 -p tcp -m multiport --dports 22,80,443 -m state --state NEW,ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -o eth0 -p tcp -m multiport --sports 22,80,443 -m state --state ESTABLISHED -j ACCEPT 
+
+	iptables -L -n -v
+
+Ahora lo ejecutamos y comprobamos el estado del cortafuegos:
+
+root@ubuntu:/home/felix/Desktop# sh reglas_iptables_set.sh 
+Chain INPUT (policy DROP 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  lo     *       0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     tcp  --  eth0   *       0.0.0.0/0            0.0.0.0/0            multiport dports 22,80,443 state NEW,ESTABLISHED
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain OUTPUT (policy DROP 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  *      lo      0.0.0.0/0            0.0.0.0/0           
+    0     0 ACCEPT     tcp  --  *      eth0    0.0.0.0/0            0.0.0.0/0            multiport sports 22,80,443 state ESTABLISHED
+         multiport sports 22,80,443 state ESTABLISHED
+
+Tras poner la configuración, vemos que sigue sirviendo HTTP	y HTTPS:
+
+root@ubuntu:/home/felix/Desktop# curl http://localhost/hola.html
+<HTML>
+<BODY>
+
+<p>
+Esto funciona :)
+</p>
+
+</BODY>
+</HTML>
+root@ubuntu:/home/felix/Desktop# curl -k https://localhost/hola.html
+<HTML>
+<BODY>
+
+<p>
+Esto funciona :)
+</p>
+
+</BODY>
+</HTML>
+
+Para terinar hay que insertar el script en la carpeta /etc y añadir una linea de codigo 
+a el archivo /etc/rc.local para que se ejecute el script al iniciar el sistema.
+La linea seria:
+
+sh reglas_iptables_set.sh
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
